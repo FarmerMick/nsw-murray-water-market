@@ -1,0 +1,89 @@
+name: Daily refresh
+
+on:
+  schedule:
+    - cron: "0 9 * * *"   # 7 pm AEST / 8 pm AEDT
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write   # keeps the schedule alive past GitHub's 60-day inactivity cut-off
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      refresh_code: ${{ steps.refresh.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m pytest -q
+      - name: Restore database
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/murray_water.sqlite
+          key: db-${{ github.run_id }}
+          restore-keys: db-
+      - name: Seed database on a cold cache
+        if: steps.cache.outputs.cache-matched-key == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          gh release download seed-db -p murray_water.sqlite -D data -R "$GITHUB_REPOSITORY" \
+            || echo "No seed database; the refresh will backfill from 2004-05 (about 5 minutes)."
+      - name: Refresh from the register and MIL
+        id: refresh
+        run: |
+          set +e
+          python -m murraywater refresh --no-open --skip-waterfind
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 0 all sources ok, 1 a source failed (the page shows it), 2 a source changed format
+          [ $code -le 2 ]
+      - name: Build the page
+        run: python -m murraywater publish --out site
+      - name: Save database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/murray_water.sqlite
+          key: db-${{ github.run_id }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Keep the schedule enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/daily.yml/enable"
+      - name: Fail loudly if a source changed format
+        if: needs.build.outputs.refresh_code == '2'
+        run: |
+          echo "::error::A source changed its format, so nothing new was stored from it. The page was still published."
+          exit 1

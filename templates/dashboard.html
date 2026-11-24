@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NSW Murray Water Market</title>
+<style>
+  /* Colour roles. Series steps validated with the dataviz six-checks validator, all pairs, both modes (23 Sep 2026). */
+  :root {
+    color-scheme: light;
+    --page: #f4f5f7; --surface: #fcfcfb; --surface-2: #f0efec;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-muted: #6f6d67;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --navy: #1b365d; --on-navy: #ffffff; --on-navy-2: #c9d6e8;
+    --emph: #1b365d; --deemph: #b9b7ae;
+    --z10: #2a78d6; --z11: #eb6834; --wex: #0a9f8f; --gs: #7c5cbf; --hs: #a0761a;
+    --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+    --font-head: Georgia, Gelasio, "Times New Roman", serif;
+    --font-sans: Calibri, Carlito, "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422;
+      --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #9a988f;
+      --grid: #2c2c2a; --axis: #45443f; --border: rgba(255,255,255,0.10);
+      --navy: #13243d; --on-navy: #ffffff; --on-navy-2: #a9bbd4;
+      --emph: #e6e4dc; --deemph: #55544f;
+      --z10: #3987e5; --z11: #d95926; --wex: #16a898; --gs: #9b7fe0; --hs: #c9a03a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422;
+    --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #9a988f;
+    --grid: #2c2c2a; --axis: #45443f; --border: rgba(255,255,255,0.10);
+    --navy: #13243d; --on-navy: #ffffff; --on-navy-2: #a9bbd4;
+    --emph: #e6e4dc; --deemph: #55544f;
+    --z10: #3987e5; --z11: #d95926; --wex: #16a898; --gs: #9b7fe0; --hs: #c9a03a;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+  h1, h2 { font-family: var(--font-head); font-weight: normal; margin: 0; }
+  h1 { font-size: 26px; }
+  h2 { font-size: 19px; color: var(--ink); }
+  h3 { font-size: 15px; margin: 0; font-weight: 600; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px; }
+
+  header.band { background: var(--navy); color: var(--on-navy); padding: 18px 0 16px; }
+  header.band .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-end; justify-content: space-between; }
+  header.band p { margin: 4px 0 0; color: var(--on-navy-2); }
+
+  .status { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border);
+          border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--ink-2); }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .icon { font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center;
+          justify-content: center; font-size: 11px; color: #fff; flex: none; }
+  .icon.ok { background: var(--good); } .icon.stale { background: var(--warning); color: #0b0b0b; } .icon.bad { background: var(--critical); }
+
+  section { margin: 22px 0; }
+  section > .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  section > .head p { margin: 0; color: var(--ink-2); font-size: 14px; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; background: var(--surface);
+             border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+  .filters label { display: inline-flex; gap: 8px; align-items: center; color: var(--ink-2); font-size: 14px; }
+  select, button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 4px 8px; }
+  button { cursor: pointer; }
+  button:hover, select:hover { background: var(--surface-2); }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--navy); }
+
+  .grid { display: grid; gap: 14px; }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 1000px) { .g3, .g2 { grid-template-columns: minmax(0, 1fr); } }  /* minmax: wide tables scroll, never widen the page */
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+  .card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .card .sub { color: var(--ink-2); font-size: 13px; margin: 2px 0 8px; }
+  .chart { width: 100%; height: 360px; }
+  .chart.tall { height: 420px; }
+  .tableview { display: none; max-height: 420px; overflow: auto; }
+  .tableview.always { display: block; }
+  .card.show-table .chart { display: none; }
+  .card.show-table .tableview { display: block; }
+  .toggle { font-size: 12px; padding: 2px 8px; color: var(--ink-2); flex: none; }
+
+  .hero { display: grid; grid-template-columns: minmax(260px, 1.2fr) repeat(3, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 1000px) { .hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+  .tile .label { color: var(--ink-2); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  .tile .value { font-size: 30px; font-weight: 600; margin: 4px 0 2px; }
+  .tile.big .value { font-size: 48px; line-height: 1.05; }
+  .tile .line { color: var(--ink-2); font-size: 13px; }
+  .tile .line b { color: var(--ink); font-weight: 600; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { padding: 5px 8px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; }
+  th { color: var(--ink-2); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.muted td { color: var(--ink-muted); }
+  .note { color: var(--ink-2); font-size: 13px; margin: 8px 0 0; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; margin: 0; }
+  .kv dt { color: var(--ink-2); } .kv dd { margin: 0; font-weight: 600; }
+  footer { color: var(--ink-2); font-size: 13px; padding: 10px 16px 40px; }
+  footer h3 { color: var(--ink); margin-top: 14px; }
+  footer ul { margin: 6px 0; padding-left: 18px; }
+  .tt b { font-weight: 700; }
+  .tt .k { display: inline-block; width: 14px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  .tt .h { font-weight: 600; margin-bottom: 4px; }
+  .needs-js { display: none; }  /* empty shells until the script runs; viewers that block scripts get the static summary */
+  html.js .needs-js { display: block; }
+  .draft { margin: 14px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--axis);
+           color: var(--ink); font-size: 14px; font-weight: 600; }
+
+  .hero.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tile .value.sm { font-size: 24px; }
+  .up { color: var(--ink); } .chg { font-weight: 600; }
+  .alert { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+           border: 1px solid var(--warning); color: var(--ink); font-size: 14px; }
+  details.about { margin: 14px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; }
+  details.about summary { cursor: pointer; font-weight: 600; }
+  details.about p, details.about li { color: var(--ink-2); font-size: 14px; }
+  a { color: var(--z10); }
+  header.band a { color: var(--on-navy); }
+  @media (max-width: 1000px) { .hero.three { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 560px) {
+    body { font-size: 14.5px; }
+    h1 { font-size: 22px; }
+    header.band .wrap > div:last-child { text-align: left !important; }
+    .hero.two { grid-template-columns: minmax(0, 1fr); }
+    .tile.big .value { font-size: 36px; }
+    .tile .value { font-size: 26px; }
+    .chart, .chart.tall { height: 300px; }
+    .filters { position: static; }
+    .chip { font-size: 12.5px; padding: 4px 10px; flex-wrap: wrap; row-gap: 0; }
+    .card { padding: 12px; }
+    th, td { padding: 4px 6px; }
+  }
+
+  /* Paper layout. The PDF export loads the page with ?print=1 (class "print"), so charts are drawn at paper size
+     from the start; @media print covers someone printing from their own browser. */
+  @page { size: A4 landscape; margin: 10mm; }
+  html.print body { font-size: 13px; }
+  html.print .wrap { max-width: none; }
+  html.print .filters, html.print button.toggle, html.print header label { display: none !important; }
+  html.print .grid.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html.print .grid.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html.print .hero { grid-template-columns: 1.2fr repeat(3, minmax(0, 1fr)); }
+  html.print .chart, html.print .chart.tall { height: 300px; }
+  html.print section { margin: 14px 0; }
+  html.print footer { padding-bottom: 0; font-size: 11.5px; line-height: 1.35; }
+  html.print footer h3 { margin-top: 8px; break-after: avoid; }
+  html.print footer ul { margin: 3px 0; break-inside: avoid; }
+  html.print #longrun { break-before: page; }
+  html.print .review-note { display: none; }  /* the banner on page 1 already says it */
+  html.print th, html.print td { padding: 3px 6px; }
+  @media print {
+    body { background: #fff; }
+    header.band, .icon, .dot, .draft { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .filters { display: none !important; }
+    button.toggle, header label { display: none !important; }
+    .card, .hero, tr { break-inside: avoid; }
+    .tableview { max-height: none !important; overflow: visible !important; }
+  }
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="wrap">
+    <div>
+      <h1>NSW Murray Water Market</h1>
+      <p>Allocation and entitlement water sold: volume, price and date</p>
+    </div>
+    <div style="text-align:right">
+      <p id="generated"></p>
+      <!--local-only--><label style="color:var(--on-navy-2);font-size:13px">Theme
+        <select id="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label><!--/local-only-->
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!--review-only <div class="draft">Draft for review · data to <span class="asof"></span> · interactive: pick a season, hover the charts, or switch any chart to a table</div> -->
+  <div id="static-summary">
+    <div class="draft">This viewer has blocked the page's scripts, so the interactive charts can't show. Save the file and open it in Chrome, Edge, Safari or Firefox<!--review-only , or read the PDF that came with it -->. The headline figures are below.</div>
+    <!--__STATIC_SUMMARY__-->
+  </div>
+  <div class="needs-js">
+  <div class="alert" id="staleAlert" hidden></div>
+  <!--public-only <details class="about"><summary>About this dashboard</summary>
+    <p>What NSW Murray water is selling for, rebuilt every evening from public data. It covers allocation (temporary) water sold in River Zones 10 and 11 and on Murray Irrigation's Water Exchange, and permanent sales of General and High Security entitlement. Each source's chip below shows when it last updated.</p>
+    <ul>
+      <li><b>Not every registered trade is a sale.</b> Most registered allocation volume moves between related parties, to environmental use or out of carryover parking at no or token prices. Only Standard Commercial trades above $0 count as sales, and outlying prices are left out of averages. The definitions are at the foot of the page.</li>
+      <li><b>Prices are what was paid, not a valuation.</b> Figures can change as the register records late trades. This is general information, not advice.</li>
+      <li>Sources: NSW Public Water Register (© State of New South Wales through WaterNSW) and Murray Irrigation Limited's Water Exchange. The code is at <a href="https://github.com/FarmerMick/nsw-murray-water-market">github.com/FarmerMick/nsw-murray-water-market</a>.</li>
+    </ul>
+  </details> -->
+  <div class="status" id="status" aria-label="Data sources"></div>
+
+  <section>
+    <div class="head"><h2>Market now</h2><p>Latest data from each source, whichever season is selected below</p></div>
+    <div class="grid g3">
+      <div class="card"><h3>MIL Water Exchange order book</h3><div class="sub" id="bookSub"></div><div id="book"></div></div>
+      <div class="card"><h3>Latest river trades (register)</h3><div class="sub">Standard Commercial trades above $0, newest first. Grey rows are outliers.</div><div class="tableview always" style="max-height:320px" id="latestTrades"></div></div>
+      <div class="card"><h3>Latest MIL Water Exchange days</h3><div class="sub">Daily totals. Average is MIL's volume-weighted daily price.</div><div class="tableview always" style="max-height:320px" id="latestWex"></div></div>
+    </div>
+  </section>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <label>Season <select id="season"></select></label>
+    <label><input type="checkbox" id="outliers"> Show outlier trades</label>
+    <!--private--><label><input type="checkbox" id="waterfind"> Show Waterfind indicator</label><!--/private-->
+    <span class="note" id="filterNote" style="margin:0"></span>
+  </div>
+
+  <section>
+    <div class="head"><h2 id="kpiTitle">Season to date</h2><p id="kpiNote"></p></div>
+    <div class="hero" id="kpis"></div>
+  </section>
+
+  <section id="recentSection">
+    <div class="head"><h2>Last 30 days</h2><p id="recentNote"></p></div>
+    <div class="hero three" id="recent"></div>
+  </section>
+
+  <section>
+    <div class="card" id="card-price">
+      <div class="top"><div><h3>Price over time ($/ML)</h3>
+        <div class="sub" id="priceSub"></div></div>
+        <button class="toggle" data-card="price">Table</button></div>
+      <div class="chart tall" id="chart-price" role="img" aria-label="Price over time by market segment"></div>
+      <div class="tableview" id="table-price"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card" id="card-spread">
+      <div class="top"><div><h3>Barmah Choke spread ($/ML)</h3>
+        <div class="sub">How much more water sells for below the Choke (Zone 11) than above it. Each point is the trailing 30-day volume-weighted average, outliers excluded, taken weekly.</div></div>
+        <button class="toggle" data-card="spread">Table</button></div>
+      <div class="chart" id="chart-spread" role="img" aria-label="Price spread between Zone 11 and Zone 10"></div>
+      <div class="tableview" id="table-spread"></div>
+    </div>
+  </section>
+
+  <section class="grid g2">
+    <div class="card" id="card-weekly">
+      <div class="top"><div><h3>Volume sold each week (ML)</h3><div class="sub">Commercial river trades plus MIL Water Exchange sales, weeks starting Monday</div></div>
+        <button class="toggle" data-card="weekly">Table</button></div>
+      <div class="chart" id="chart-weekly" role="img" aria-label="Weekly volume sold by segment"></div>
+      <div class="tableview" id="table-weekly"></div>
+    </div>
+    <div class="card" id="card-cumulative">
+      <div class="top"><div><h3>Cumulative volume sold against last season (ML)</h3><div class="sub" id="cumSub"></div></div>
+        <button class="toggle" data-card="cumulative">Table</button></div>
+      <div class="chart" id="chart-cumulative" role="img" aria-label="Cumulative volume this season against last season"></div>
+      <div class="tableview" id="table-cumulative"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h3>Month by month</h3>
+      <div class="sub">Volume sold and volume-weighted average price by segment (outliers excluded from price), with last season's total for the same month</div>
+      <div class="tableview always" style="max-height:none" id="monthly"></div>
+    </div>
+  </section>
+
+  <section class="grid g2">
+    <div class="card" id="card-purpose">
+      <div class="top"><div><h3>What the register records (ML)</h3><div class="sub" id="purposeSub"></div></div>
+        <button class="toggle" data-card="purpose">Table</button></div>
+      <div class="chart" id="chart-purpose" role="img" aria-label="Registered volume by trade purpose"></div>
+      <div class="tableview" id="table-purpose"></div>
+    </div>
+    <div class="card">
+      <h3>Where commercial river trades went (ML)</h3>
+      <div class="sub">By NSW Murray zone. Out is water sold to Victoria, SA or another valley; in is water bought from them.</div>
+      <div id="direction" class="tableview always"></div>
+      <p class="note">A trade between the two zones counts in the seller's zone.</p>
+    </div>
+  </section>
+
+  <section id="permanent">
+    <div class="head"><h2 id="permTitle">Permanent entitlement sales</h2><p id="permNote"></p></div>
+    <div class="hero two" id="permKpis"></div>
+  </section>
+  <section class="grid g2">
+    <div class="card" id="card-permprice">
+      <div class="top"><div><h3>Entitlement price paid ($/unit)</h3><div class="sub">Each dot is a share assignment or licence transfer, sized by units. Hollow dots are outliers, left out of averages.</div></div>
+        <button class="toggle" data-card="permprice">Table</button></div>
+      <div class="chart" id="chart-permprice" role="img" aria-label="Entitlement prices paid in the selected season"></div>
+      <div class="tableview" id="table-permprice"></div>
+    </div>
+    <div class="card"><h3>Latest entitlement sales</h3><div class="sub">Newest first, any season. s71Q is a share assignment, s71M a licence transfer. Grey rows are outliers.</div>
+      <div class="tableview always" style="max-height:360px" id="latestPerm"></div></div>
+  </section>
+
+  <section id="longrun">
+    <div class="head"><h2>Long run</h2><p>Every season held, with the selected season shaded. MIL data runs from 1999–00 and register data from 2004–05.</p></div>
+    <div class="grid g2">
+      <div class="card" id="card-lrprice">
+        <div class="top"><div><h3>Season average price ($/ML)</h3><div class="sub">Volume-weighted, outliers excluded. MIL is its season total cost ÷ ML.</div></div>
+          <button class="toggle" data-card="lrprice">Table</button></div>
+        <div class="chart" id="chart-lrprice" role="img" aria-label="Season average price by segment"></div>
+        <div class="tableview" id="table-lrprice"></div>
+      </div>
+      <div class="card" id="card-lrvolume">
+        <div class="top"><div><h3>Season volume sold (ML)</h3><div class="sub">Commercial river trades plus MIL Water Exchange sales</div></div>
+          <button class="toggle" data-card="lrvolume">Table</button></div>
+        <div class="chart" id="chart-lrvolume" role="img" aria-label="Season volume sold by segment"></div>
+        <div class="tableview" id="table-lrvolume"></div>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card" id="card-lrpermprice">
+        <div class="top"><div><h3>Entitlement season average price ($/unit)</h3><div class="sub">Volume-weighted, outliers excluded.</div></div>
+          <button class="toggle" data-card="lrpermprice">Table</button></div>
+        <div class="chart" id="chart-lrpermprice" role="img" aria-label="Entitlement season average price by category"></div>
+        <div class="tableview" id="table-lrpermprice"></div>
+      </div>
+      <div class="card" id="card-lrpermvol">
+        <div class="top"><div><h3>Entitlement units sold each season</h3><div class="sub">Share assignments and licence transfers priced above $0, outliers excluded.</div></div>
+          <button class="toggle" data-card="lrpermvol">Table</button></div>
+        <div class="chart" id="chart-lrpermvol" role="img" aria-label="Entitlement units sold by season and category"></div>
+        <div class="tableview" id="table-lrpermvol"></div>
+      </div>
+    </div>
+    <p class="note">* Season to date. Before trade purpose was recorded (it started partway through 2020–21), every river trade above $0 counts, so earlier river figures are less clean.</p>
+  </section>
+  </div>
+</main>
+
+<footer class="wrap">
+  <h3>How the numbers are built</h3>
+  <ul>
+    <li><b>Season</b> is the water year, 1 July to 30 June.</li>
+    <li><b>River Zone 10</b> is NSW Murray above the Barmah Choke (upstream of Picnic Point) and <b>River Zone 11</b> is below it. A register trade is placed by its NSW Murray side: the seller's zone if the seller holds NSW Murray water, otherwise the buyer's.</li>
+    <li><b>Water sold</b> is register trades marked Standard Commercial and priced above $0, plus MIL Water Exchange sales. It leaves out related-party, environmental, carryover-parking, private-lease and forward-contract assignments. For trades with no recorded purpose, every trade above $0 counts. Supplementary water is excluded.</li>
+    <li><b>MIL Water Exchange</b> trades happen inside Murray Irrigation's own licence and don't appear in the state register, so the two volumes add without double counting. That's derived from the data, not confirmed by MIL or WaterNSW.</li>
+    <li><b>Last 30 days</b> is the 30 days to the latest trade date. The <b>Choke spread</b> is Zone 11's trailing 30-day average less Zone 10's (river trades), and less MIL's exchange price, which is also above the Choke.</li>
+    <li><b>Permanent entitlement sales</b> are register share assignments (s71Q) and licence transfers (s71M) of NSW Murray General or High Security share components priced above $0. Price is dollars per unit of share component. The register records no trade purpose or zone for these, so related-party or token-priced dealings can only be caught by the outlier rule, which here leaves them out of volume as well as price: a price below <span class="permLow"></span>× or above <span class="permHigh"></span>× the median for that category and season, once there are at least <span class="permMin"></span> trades. Trades of Murray Irrigation's own irrigation rights happen inside its licence and aren't in the register.</li>
+    <li><b>Price</b> is the volume-weighted average (VWAP), with the median beside it. <span id="ruleText"></span> Outliers still count in volume.</li>
+    <!--private--><li><b>Waterfind</b> publishes only its last ten settled trades per zone, so it's an indicator and never added to volume. Its Zone 11 list has matched other zones' lists and is flagged when that happens.</li><!--/private-->
+  </ul>
+  <h3>Sources</h3>
+  <ul>
+    <li>NSW Public Water Register: allocation assignments, share assignments and licence transfers for the New South Wales Murray Regulated River Water Source. © State of New South Wales through WaterNSW. WaterNSW doesn't guarantee the accuracy of pricing data.</li>
+    <li>Murray Irrigation Limited: Water Exchange market data, © Murray Irrigation Limited, reproduced with attribution from murrayirrigation.com.au (historical water data).</li>
+    <!--private--><li>Waterfind public market information, used for private, non-commercial purposes only.</li><!--/private-->
+  </ul>
+  <!--private--><p>For private, non-commercial use. Built from BUILD_PROMPT.md v1.3; decisions are in DECISIONS.md.</p><!--/private-->
+  <!--public-only <p>Independent and unofficial; not affiliated with WaterNSW or Murray Irrigation. General information only, not financial advice. Rebuilt automatically each evening; source code and method at <a href="https://github.com/FarmerMick/nsw-murray-water-market">github.com/FarmerMick/nsw-murray-water-market</a>.</p> -->
+  <!--review-only <p class="review-note">Draft for review, prepared <span class="asof"></span> from public sources. Please don't circulate further without checking first.</p> -->
+</footer>
+
+<script src="../assets/echarts.min.js"></script>
+<script>
+"use strict";
+document.documentElement.classList.add("js");
+// A shared copy arrives pre-drawn and pinned to the light theme (its static charts carry light colours).
+// Once scripts run, the live charts replace them, so the viewer's own theme applies again.
+if (document.documentElement.dataset.snapshot) {
+  delete document.documentElement.dataset.snapshot;
+  delete document.documentElement.dataset.theme;
+}
+const DATA = /*__DASHBOARD_DATA__*/null;
+
+const SEG = ["Z10", "Z11", "WEX"];
+const SEG_LABEL = DATA.segments;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAY = 86400000;
+const state = { season: DATA.current_season, outliers: false, waterfind: false };
+const PRINT = new URLSearchParams(location.search).has("print");
+if (PRINT) document.documentElement.classList.add("print");
+const charts = {};
+const tableBuilders = {};
+
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else if (k === "style") e.style.cssText = v; else e.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) e.append(c);
+  return e;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function ts(iso) { const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return Date.UTC(y, m - 1, d); }
+function isoOf(t) { return new Date(t).toISOString().slice(0, 10); }
+function fmtDate(iso) { const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; }
+function fmtDay(iso) { const [, m, d] = iso.slice(0, 10).split("-").map(Number); return `${d} ${MONTHS[m - 1]}`; }
+function num(v, dp = 0) { return v == null ? "–" : v.toLocaleString("en-AU", { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+function ml(v) { return v == null ? "–" : `${num(v)} ML`; }
+function price(v, dp = 0) { return v == null ? "–" : `$${num(v, dp)}/ML`; }
+function pct(a, b) { return a == null || !b ? null : (a - b) / b * 100; }
+function signed(p) { return p == null ? "" : `${p >= 0 ? "▲" : "▼"} ${Math.abs(p).toFixed(0)}%`; }
+function vwapOf(pairs) { let v = 0, m = 0; for (const [q, p] of pairs) { v += q * p; m += q; } return m ? v / m : null; }
+function colors() {
+  return { Z10: css("--z10"), Z11: css("--z11"), WEX: css("--wex"), GS: css("--gs"), HS: css("--hs"), ink: css("--ink"), ink2: css("--ink-2"), muted: css("--ink-muted"),
+           grid: css("--grid"), axis: css("--axis"), surface: css("--surface"), surface2: css("--surface-2"), emph: css("--emph"),
+           deemph: css("--deemph"), font: css("--font-sans") };
+}
+function season() { return DATA.seasons[state.season]; }
+function prevLabel(label) { const y = Number(label.slice(0, 4)) - 1; return `${y}-${String((y + 1) % 100).padStart(2, "0")}`; }
+function symbolFor(q) { return Math.max(8, Math.min(26, 6 + Math.sqrt(q) / 2.2)); }
+function zoneName(z) { return z === "Z10" ? "Zone 10" : "Zone 11"; }
+function table(headers, rows, numericFrom = 1) {
+  const t = el("table"), head = el("tr");
+  headers.forEach((h, i) => head.append(el("th", { class: i >= numericFrom ? "n" : "", text: h })));
+  t.append(el("thead", {}, head));
+  const body = el("tbody");
+  for (const r of rows) {
+    const row = el("tr", r.muted ? { class: "muted" } : {});
+    (r.cells || r).forEach((c, i) => row.append(el("td", { class: i >= numericFrom ? "n" : "", text: c == null ? "–" : String(c) })));
+    body.append(row);
+  }
+  t.append(body);
+  return t;
+}
+function baseOption(c) {
+  return {
+    animation: false, useUTC: true,
+    textStyle: { fontFamily: c.font, color: c.ink2, fontSize: 12 },
+    grid: { left: 64, right: 24, top: 44, bottom: 36 },
+    legend: { top: 4, left: 0, textStyle: { color: c.ink2, fontSize: 12 }, itemWidth: 14, itemHeight: 8 },
+    tooltip: { backgroundColor: c.surface, borderColor: c.axis, borderWidth: 1, textStyle: { color: c.ink, fontSize: 12.5, fontFamily: c.font },
+               extraCssText: "box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:8px;" },
+  };
+}
+function axisStyle(c) {
+  return { axisLine: { lineStyle: { color: c.axis } }, axisTick: { show: false }, axisLabel: { color: c.muted },
+           splitLine: { lineStyle: { color: c.grid, width: 1, type: "solid" } } };
+}
+function key(color) { return `<span class="k" style="border-color:${color}"></span>`; }
+function mount(id) {
+  if (!charts[id]) {
+    const box = $(`chart-${id}`);
+    box.replaceChildren();  // drop the pre-drawn chart a shared copy carries
+    charts[id] = echarts.init(box, null, { renderer: "svg" });
+  }
+  return charts[id];
+}
+
+// ---------- status and market now ----------
+function renderStatus() {
+  const fetched = Object.values(DATA.sources).map((s) => s.last_success).filter(Boolean).sort().pop() || DATA.generated_at;
+  $("generated").textContent = `Data refreshed ${fmtDate(fetched)} at ${fetched.slice(11, 16)}`;
+  const box = $("status");
+  box.replaceChildren();
+  const names = { register: "Register: allocation", permanent: "Register: entitlement", mil: "MIL Water Exchange", waterfind: "Waterfind" };
+  // A published copy can outlive its data if the nightly rebuild stops, so check the age where it's being read
+  const ageHours = (Date.now() - Date.parse(DATA.generated_at)) / 3600000;
+  const failing = Object.entries(DATA.sources).filter(([, s]) => s.last_status && !["ok", "warn"].includes(s.last_status)).map(([k]) => names[k] || k);
+  const alert = $("staleAlert");
+  if (ageHours > 36) {
+    alert.textContent = `This page was last rebuilt ${fmtDate(DATA.generated_at)}, ${Math.floor(ageHours / 24)} days ago, so it may be out of date.`;
+    alert.hidden = false;
+  } else if (failing.length) {
+    alert.textContent = `The latest fetch from ${failing.join(" and ")} failed, so its figures are from the last successful fetch.`;
+    alert.hidden = false;
+  }
+  for (const [k, name] of Object.entries(names)) {
+    const s = DATA.sources[k];
+    if (!s) continue;  // the review copy carries no Waterfind data
+    const failed = s.last_status && !["ok", "warn"].includes(s.last_status);
+    const kind = failed ? "bad" : (s.stale ? "stale" : "ok");
+    const icon = el("span", { class: `icon ${kind}`, text: kind === "ok" ? "✓" : kind === "stale" ? "!" : "✕", "aria-hidden": "true" });
+    const word = kind === "ok" ? "Current" : kind === "stale" ? "Stale" : "Last fetch failed";
+    const latest = s.latest_trade ? `latest trade ${fmtDate(s.latest_trade)}` : "no trades yet";
+    box.append(el("span", { class: "chip", title: s.last_detail || "" }, icon, el("b", { text: name }), `${word} · ${latest}`));
+  }
+  if (DATA.unzoned_commercial_rows) box.append(el("span", { class: "chip", text: `${DATA.unzoned_commercial_rows} commercial register rows had no zone and are excluded` }));
+}
+
+function renderMarketNow() {
+  const m = DATA.market_now, box = $("book");
+  box.replaceChildren();
+  if (!m) { box.append(el("p", { class: "note", text: "No MIL snapshot yet." })); return; }
+  $("bookSub").textContent = `Snapshot ${fmtDate(m.taken_at)} at ${m.taken_at.slice(11, 16)}. Water listings only; delivery entitlements excluded.`;
+  const dl = el("dl", { class: "kv" });
+  const add = (k, v) => dl.append(el("dt", { text: k }), el("dd", { text: v }));
+  add("Lowest offer to sell", price(m.best_ask));
+  add("Highest bid to buy", price(m.best_bid));
+  add("Listed for sale", ml(m.ml_for_sale));
+  add("Sold today", m.today_ml ? `${ml(m.today_ml)} at ${price(m.today_vwap)}` : "Nothing yet");
+  add("MIL allocation", m.summary.allocation == null ? "–" : `${m.summary.allocation}%`);
+  box.append(dl);
+  const ladder = [];
+  for (let i = 0; i < 5; i++) {
+    const a = m.asks[i], b = m.bids[i];
+    ladder.push([b ? num(b[1], 1) : "", b ? `$${num(b[0])}` : "", a ? `$${num(a[0])}` : "", a ? num(a[1], 1) : ""]);
+  }
+  box.append(el("p", { class: "note", text: "Top of the book" }),
+             el("div", { class: "tableview always" }, table(["Bid ML", "Bid", "Ask", "Ask ML"], ladder, 0)));
+  $("latestTrades").replaceChildren(table(["Date", "Zone", "Direction", "ML", "$/ML"],
+    DATA.latest_trades.slice(0, PRINT ? 8 : 15).map((t) => ({ cells: [fmtDay(t[0]), zoneName(t[1]), t[2], num(t[3], 1), num(t[4], 2)], muted: !!t[6] })), 3));
+  $("latestWex").replaceChildren(table(["Date", "ML", "Low", "High", "Average"],
+    DATA.latest_wex.slice(0, PRINT ? 8 : 10).map((w) => [fmtDay(w[0]), num(w[1], 1), `$${num(w[2])}`, `$${num(w[3])}`, `$${num(w[4], 2)}`]), 1));
+}
+
+// ---------- KPIs ----------
+function renderKpis() {
+  const S = season(), k = S.kpis, current = state.season === DATA.current_season;
+  const prev = current ? S.prev_same_day : (DATA.seasons[prevLabel(state.season)] || {}).kpis;
+  $("kpiTitle").textContent = current ? `Season to date, ${state.season}` : `Full season, ${state.season}`;
+  $("kpiNote").textContent = current ? `As of ${fmtDate(DATA.as_of)}, compared with the same point in ${prevLabel(state.season)}`
+                                     : (prev ? `Compared with the full ${prevLabel(state.season)} season` : "");
+  const box = $("kpis");
+  box.replaceChildren();
+  box.append(el("div", { class: "card tile big" },
+    el("div", { class: "label", text: "Water sold" }),
+    el("div", { class: "value", text: ml(k.total_ml) }),
+    el("div", { class: "line", text: prev ? `${signed(pct(k.total_ml, prev.total_ml))} against ${ml(prev.total_ml)}` : "" }),
+    el("div", { class: "line", text: `River Zone 10 ${ml(k.Z10.ml)} · River Zone 11 ${ml(k.Z11.ml)} · MIL ${ml(k.WEX.ml)}` })));
+  for (const s of SEG) {
+    const x = k[s], p = prev ? prev[s] : null;
+    box.append(el("div", { class: "card tile" },
+      el("div", { class: "label" }, el("span", { class: "dot", style: `background:var(--${s.toLowerCase()})` }), SEG_LABEL[s]),
+      el("div", { class: "value", text: price(x.vwap) }),
+      el("div", { class: "line", text: s === "WEX" ? "Volume-weighted average" : `Volume-weighted average · median ${price(x.median)}` }),
+      el("div", { class: "line" }, el("b", { text: ml(x.ml) }), ` from ${num(x.n)} ${s === "WEX" ? "trading days" : "trades"}`),
+      el("div", { class: "line", text: x.last ? `Last: ${fmtDay(x.last.date)}, ${num(x.last.ml, 1)} ML at ${price(x.last.price, 2)}` : "No trades" }),
+      el("div", { class: "line", text: p && p.vwap ? `${signed(pct(x.vwap, p.vwap))} price, ${signed(pct(x.ml, p.ml))} volume against ${prevLabel(state.season)}` : "" }),
+      s !== "WEX" && x.outliers ? el("div", { class: "line", text: `${x.outliers} outlier${x.outliers > 1 ? "s" : ""} (${ml(x.outlier_ml)}) left out of price; raw ${price(x.vwap_raw)}` }) : null));
+  }
+  const r = DATA.rules;
+  $("ruleText").textContent = `A river trade is an outlier when its price is below ${r.outlier_low}× or above ${r.outlier_high}× the median of its zone's trades over the previous ${r.window_days} days (with at least ${r.min_trades} trades; otherwise the season to date). The rule is an assumption, so the tiles show the raw average beside it.`;
+  const outl = k.Z10.outliers + k.Z11.outliers;
+  $("filterNote").textContent = outl ? `${outl} outlier river trade${outl > 1 ? "s" : ""} in this view` : "";
+}
+
+// ---------- last 30 days ----------
+function renderRecent() {
+  const S = season(), sec = $("recentSection");
+  sec.hidden = !S.recent;
+  if (!S.recent) return;
+  $("recentNote").textContent = `${S.recent_days} days to ${fmtDate(DATA.as_of)}, against the season-to-date average and the ${S.recent_days} days before`;
+  const box = $("recent");
+  box.replaceChildren();
+  for (const s of SEG) {
+    const r = S.recent[s], k = S.kpis[s];
+    box.append(el("div", { class: "card tile" },
+      el("div", { class: "label" }, el("span", { class: "dot", style: `background:var(--${s.toLowerCase()})` }), SEG_LABEL[s]),
+      el("div", { class: "value sm", text: r.now.vwap == null ? "No sales" : price(r.now.vwap) }),
+      el("div", { class: "line" }, el("b", { text: ml(r.now.ml) }), ` from ${num(r.now.n)} ${s === "WEX" ? "trading days" : "trades"}`),
+      el("div", { class: "line", text: r.now.vwap != null && k.vwap ? `${signed(pct(r.now.vwap, k.vwap))} against the season average of ${price(k.vwap)}` : "" }),
+      el("div", { class: "line", text: r.now.vwap != null && r.before.vwap ? `${signed(pct(r.now.vwap, r.before.vwap))} against the previous ${S.recent_days} days (${price(r.before.vwap)})` : "" })));
+  }
+}
+
+// ---------- Choke spread ----------
+function renderSpread() {
+  const c = colors(), S = season(), chart = mount("spread");
+  const rows = S.spread.map((r) => ({ d: r[0], river: r[2] != null && r[1] != null ? r[2] - r[1] : null, mil: r[2] != null && r[3] != null ? r[2] - r[3] : null, z10: r[1], z11: r[2], wex: r[3] }));
+  const opt = baseOption(c);
+  const line = (name, color, key) => ({ name, type: "line", connectNulls: false, showSymbol: true, symbolSize: 5, lineStyle: { width: 2, color }, itemStyle: { color },
+    data: rows.map((r) => [ts(r.d), r[key] == null ? null : Math.round(r[key])]) });
+  Object.assign(opt, {
+    xAxis: { type: "time", min: ts(S.start), max: state.season === DATA.current_season ? ts(DATA.as_of) + 7 * DAY : ts(S.end), ...axisStyle(c), splitLine: { show: false },
+             axisLabel: { color: c.muted, hideOverlap: true, formatter: (v) => { const d = new Date(v); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; } } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => `$${num(v)}` } },
+    tooltip: { ...opt.tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: c.axis } }, formatter: (ps) => {
+      const r = rows.find((x) => ts(x.d) === ps[0].axisValue); if (!r) return "";
+      let html = `<div class="tt"><div class="h">30 days to ${esc(fmtDate(r.d))}</div>`;
+      html += `<div>${key(c.Z11)}<b>${esc(r.river == null ? "–" : price(r.river))}</b> Zone 11 over Zone 10</div>`;
+      html += `<div>${key(c.WEX)}<b>${esc(r.mil == null ? "–" : price(r.mil))}</b> Zone 11 over MIL</div>`;
+      return html + `<div style="margin-top:4px">Zone 11 ${esc(price(r.z11))} · Zone 10 ${esc(price(r.z10))} · MIL ${esc(price(r.wex))}</div></div>`; } },
+    series: [line("Zone 11 less Zone 10 (river)", c.Z11, "river"), line("Zone 11 less MIL Water Exchange", c.WEX, "mil")],
+  });
+  chart.setOption(opt, true);
+  tableBuilders.spread = () => table(["30 days to", "Zone 10 $/ML", "Zone 11 $/ML", "MIL $/ML", "Z11 − Z10", "Z11 − MIL"],
+    rows.map((r) => [fmtDate(r.d), num(r.z10), num(r.z11), num(r.wex), r.river == null ? "–" : num(r.river), r.mil == null ? "–" : num(r.mil)]));
+}
+
+// ---------- permanent entitlement ----------
+const PERM = ["GS", "HS"];
+function units(v) { return v == null ? "–" : `${num(v, v > 0 && v < 10 && v % 1 ? 1 : 0)} units`; }
+function perUnit(v, dp = 0) { return v == null ? "–" : `$${num(v, dp)}/unit`; }
+function renderPerm() {
+  const c = colors(), S = season(), k = S.perm_kpis, current = state.season === DATA.current_season;
+  const prev = current ? S.prev_perm_same_day : (DATA.seasons[prevLabel(state.season)] || {}).perm_kpis;
+  $("permTitle").textContent = `Permanent entitlement sales, ${state.season}${current ? " to date" : ""}`;
+  $("permNote").textContent = prev ? `Compared with ${current ? "the same point in " : "the full "}${prevLabel(state.season)}` : "";
+  const box = $("permKpis");
+  box.replaceChildren();
+  for (const cat of PERM) {
+    const x = k[cat], p = prev ? prev[cat] : null;
+    box.append(el("div", { class: "card tile" },
+      el("div", { class: "label" }, el("span", { class: "dot", style: `background:var(--${cat.toLowerCase()})` }), DATA.perm_categories[cat]),
+      el("div", { class: "value", text: perUnit(x.vwap) }),
+      el("div", { class: "line", text: `Volume-weighted average · median ${perUnit(x.median)}` }),
+      el("div", { class: "line" }, el("b", { text: units(x.units) }), ` from ${num(x.n)} sales`),
+      el("div", { class: "line", text: x.last ? `Last: ${fmtDay(x.last.date)}, ${num(x.last.units)} units at ${perUnit(x.last.price)}` : "No sales" }),
+      el("div", { class: "line", text: p && p.vwap && x.vwap ? `${signed(pct(x.vwap, p.vwap))} price, ${signed(pct(x.units, p.units))} units against ${prevLabel(state.season)}` : "" }),
+      x.outliers ? el("div", { class: "line", text: `${x.outliers} outlier${x.outliers > 1 ? "s" : ""} (${units(x.outlier_units)}) left out of price and volume` }) : null));
+  }
+  const chart = mount("permprice"), opt = baseOption(c);
+  const pts = (cat) => S.perm_trades.filter((t) => t[1] === cat && (state.outliers || !t[4]));
+  Object.assign(opt, {
+    xAxis: { type: "time", min: ts(S.start), max: current ? ts(DATA.as_of) + 7 * DAY : ts(S.end), ...axisStyle(c), splitLine: { show: false },
+             axisLabel: { color: c.muted, hideOverlap: true, formatter: (v) => { const d = new Date(v); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; } } },
+    yAxis: { type: "value", scale: true, ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => `$${num(v)}` } },
+    tooltip: { ...opt.tooltip, trigger: "item", formatter: (p) => { const t = p.data.t;
+      return `<div class="tt"><div class="h">${esc(fmtDate(t[0]))}</div><div>${key(c[t[1]])}<b>${esc(num(t[2]))} units at ${esc(perUnit(t[3], 2))}</b></div><div>${esc(DATA.perm_categories[t[1]])}, s${esc(t[5])}${t[4] ? ", outlier" : ""}</div></div>`; } },
+    series: PERM.map((cat) => ({ name: DATA.perm_categories[cat], type: "scatter", symbolSize: (v) => Math.max(7, Math.min(28, 5 + Math.sqrt(v[2]) / 2.5)),
+      itemStyle: { color: c[cat], borderColor: c.surface, borderWidth: 1, opacity: 0.8 },
+      data: pts(cat).map((t) => ({ value: [ts(t[0]), t[3], t[2]], t, itemStyle: t[4] ? { color: "transparent", borderColor: c[cat], borderWidth: 1.5, opacity: 1 } : undefined })) })),
+  });
+  chart.setOption(opt, true);
+  tableBuilders.permprice = () => table(["Date", "Category", "Dealing", "Units", "$/unit"],
+    S.perm_trades.slice().reverse().map((t) => ({ cells: [fmtDate(t[0]), DATA.perm_categories[t[1]], `s${t[5]}`, num(t[2]), num(t[3], 2)], muted: !!t[4] })), 3);
+}
+function renderLatestPerm() {
+  $("latestPerm").replaceChildren(table(["Date", "Category", "Dealing", "Units", "$/unit"],
+    DATA.latest_perm.map((t) => ({ cells: [fmtDate(t[0]), DATA.perm_categories[t[1]], `s${t[4]}`, num(t[2]), num(t[3], 2)], muted: !!t[5] })), 3));
+}
+
+// ---------- price over time ----------
+function weeksOf(S) { return [...new Set(SEG.flatMap((s) => S.weekly[s].map((w) => w[0])))].sort(); }
+function renderPrice() {
+  const c = colors(), S = season(), chart = mount("price");
+  const series = [];
+  for (const z of ["Z10", "Z11"]) {
+    const pts = S.trades.filter((t) => t[1] === z && (state.outliers || !t[5]));
+    series.push({ name: SEG_LABEL[z], type: "scatter", z: 3, symbolSize: (v) => symbolFor(v[2]),
+      itemStyle: { color: c[z], borderColor: c.surface, borderWidth: 1, opacity: 0.8 },
+      data: pts.map((t) => ({ value: [ts(t[0]), t[4], t[3]], itemStyle: t[5] ? { color: "transparent", borderColor: c[z], borderWidth: 1.5, opacity: 1 } : undefined })) });
+  }
+  series.push({ name: SEG_LABEL.WEX, type: "scatter", z: 3, symbolSize: (v) => symbolFor(v[2]),
+    itemStyle: { color: c.WEX, borderColor: c.surface, borderWidth: 1, opacity: 0.8 }, data: S.wex.map((w) => [ts(w[0]), w[4], w[1]]) });
+  for (const s of SEG) {
+    series.push({ name: SEG_LABEL[s], type: "line", z: 4, showSymbol: false, connectNulls: false,
+      lineStyle: { width: 2, color: c[s], cap: "round", join: "round" }, itemStyle: { color: c[s] },
+      data: S.weekly[s].map((w) => [ts(w[0]) + 3 * DAY, w[2]]) });
+  }
+  const wf = "Waterfind last trades (indicator)";
+  if (state.waterfind && S.waterfind.length) {
+    series.push({ name: wf, type: "scatter", symbol: "diamond", symbolSize: 11, z: 5,
+      itemStyle: { color: c.muted, borderColor: c.surface, borderWidth: 1.5 }, data: S.waterfind.map((w) => [ts(w[0]), w[3], w[2]]) });
+  }
+  series.push({ name: "alloc", type: "line", data: [], silent: true, markLine: { silent: true, symbol: ["none", "none"],
+    lineStyle: { color: c.axis, width: 1, type: "solid" }, label: { color: c.muted, fontSize: 11, position: "insideEndTop", formatter: (p) => p.name },
+    data: S.alloc.map((a) => ({ xAxis: ts(a[0]), name: `MIL ${a[1]}%` })) } });
+  const start = ts(S.start), end = state.season === DATA.current_season ? Math.min(ts(S.end), ts(DATA.as_of) + 7 * DAY) : ts(S.end);
+  $("priceSub").textContent = "Dots are river trades and MIL Water Exchange daily totals, sized by volume. Lines are weekly volume-weighted averages, excluding outliers. "
+    + (S.alloc_tracked_from
+      ? `Vertical rules mark changes in MIL's allocation. MIL only publishes history for finished seasons, so this season's changes are tracked from ${fmtDate(S.alloc_tracked_from)}.`
+      : "Vertical rules mark MIL allocation announcements.");
+  const opt = baseOption(c);
+  Object.assign(opt, {
+    legend: { ...opt.legend, data: [SEG_LABEL.Z10, SEG_LABEL.Z11, SEG_LABEL.WEX].concat(state.waterfind && S.waterfind.length ? [wf] : []) },
+    xAxis: { type: "time", min: start, max: end, ...axisStyle(c), splitLine: { show: false },
+             axisLabel: { color: c.muted, hideOverlap: true, formatter: (v) => { const d = new Date(v); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; } } },
+    yAxis: { type: "value", scale: true, ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => `$${num(v)}` } },
+    tooltip: { ...opt.tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: c.axis } }, formatter: (params) => priceTooltip(params, c) },
+    series,
+  });
+  chart.setOption(opt, true);
+  tableBuilders.price = () => table(["Week starting", "Zone 10 ML", "Zone 10 $/ML", "Zone 11 ML", "Zone 11 $/ML", "MIL ML", "MIL $/ML"],
+    weeksOf(S).map((w) => [fmtDate(w), ...SEG.flatMap((s) => { const r = S.weekly[s].find((x) => x[0] === w); return r ? [num(r[1], 1), num(r[2], 2)] : ["", ""]; })]));
+}
+function priceTooltip(params, c) {
+  if (!params.length) return "";
+  const S = season(), iso = isoOf(params[0].axisValue);
+  const monday = isoOf(ts(iso) - ((new Date(ts(iso)).getUTCDay() + 6) % 7) * DAY);
+  const week = monday < S.start ? S.start : monday;  // the first week of a season starts on 1 July
+  let html = `<div class="tt"><div class="h">${esc(fmtDate(iso))}</div>`;
+  for (const z of ["Z10", "Z11"]) {
+    const day = S.trades.filter((t) => t[0] === iso && t[1] === z && (state.outliers || !t[5]));
+    const wk = S.weekly[z].find((w) => w[0] === week);
+    const v = vwapOf(day.filter((t) => !t[5]).map((t) => [t[3], t[4]]));
+    const what = day.length ? `${day.length} trade${day.length > 1 ? "s" : ""}, ${ml(day.reduce((a, t) => a + t[3], 0))}${v ? ` at ${price(v, 2)}` : ""}` : "No trades";
+    html += `<div>${key(c[z])}<b>${esc(what)}</b> ${esc(SEG_LABEL[z])}${wk && wk[2] ? `, week ${esc(price(wk[2]))}` : ""}</div>`;
+  }
+  const w = S.wex.find((x) => x[0] === iso), wk = S.weekly.WEX.find((x) => x[0] === week);
+  html += `<div>${key(c.WEX)}<b>${w ? esc(`${ml(w[1])} at ${price(w[4], 2)}`) : "No sales"}</b> MIL Water Exchange${w ? esc(` ($${num(w[2])}–$${num(w[3])})`) : ""}${wk && wk[2] ? `, week ${esc(price(wk[2]))}` : ""}</div>`;
+  if (state.waterfind) for (const f of S.waterfind.filter((x) => x[0] === iso))
+    html += `<div>${key(c.muted)}<b>${esc(`${ml(f[2])} at ${price(f[3])}`)}</b> Waterfind ${esc(zoneName(f[1]))}${f[4] ? " (list not zone-specific)" : ""}</div>`;
+  for (const a of S.alloc.filter((x) => x[0] === iso)) html += `<div>MIL allocation announced: <b>${esc(a[1])}%</b></div>`;
+  return html + "</div>";
+}
+
+// ---------- weekly volume ----------
+function renderWeekly() {
+  const c = colors(), S = season(), chart = mount("weekly");
+  const weeks = weeksOf(S);
+  const val = (s, w) => { const r = S.weekly[s].find((x) => x[0] === w); return r ? r[1] : 0; };
+  const top = weeks.map((w) => { let t = null; for (const s of SEG) if (val(s, w) > 0) t = s; return t; });
+  const series = SEG.map((s) => ({ name: SEG_LABEL[s], type: "bar", stack: "v", barMaxWidth: 24,
+    itemStyle: { color: c[s], borderColor: c.surface, borderWidth: 1 }, emphasis: { itemStyle: { opacity: 0.85 } },
+    data: weeks.map((w, i) => ({ value: val(s, w), itemStyle: top[i] === s ? { borderRadius: [4, 4, 0, 0] } : undefined })) }));
+  const opt = baseOption(c);
+  Object.assign(opt, {
+    legend: { ...opt.legend, icon: "rect" },
+    xAxis: { type: "category", data: weeks, ...axisStyle(c), splitLine: { show: false }, axisLabel: { color: c.muted, hideOverlap: true, formatter: (v) => fmtDay(v) } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => num(v) } },
+    tooltip: { ...opt.tooltip, trigger: "item", formatter: (p) => {
+      const w = weeks[p.dataIndex];
+      let total = 0, html = `<div class="tt"><div class="h">Week of ${esc(fmtDate(w))}</div>`;
+      for (const s of SEG) {
+        const q = val(s, w), r = S.weekly[s].find((x) => x[0] === w); total += q;
+        html += `<div>${key(c[s])}<b>${esc(ml(q))}</b> ${esc(SEG_LABEL[s])}${r && r[2] ? ` at ${esc(price(r[2]))}` : ""}</div>`;
+      }
+      return html + `<div><b>${esc(ml(total))}</b> total</div></div>`; } },
+    series,
+  });
+  chart.setOption(opt, true);
+  tableBuilders.weekly = () => table(["Week starting", "Zone 10", "Zone 11", "MIL", "Total"],
+    weeks.map((w) => [fmtDate(w), ...SEG.map((s) => num(val(s, w), 1)), num(SEG.reduce((a, s) => a + val(s, w), 0), 1)]));
+}
+
+// ---------- cumulative against last season ----------
+function totalCum(S) { return S.cumulative.Z10.map((_, d) => SEG.reduce((a, s) => a + (S.cumulative[s][d] || 0), 0)); }
+function renderCumulative() {
+  const c = colors(), S = season(), chart = mount("cumulative");
+  const P = DATA.seasons[prevLabel(state.season)];
+  const start = ts(S.start), cur = totalCum(S), prev = P ? totalCum(P) : null;
+  const series = [{ name: state.season, type: "line", showSymbol: false, z: 3, lineStyle: { width: 2, color: c.emph }, itemStyle: { color: c.emph },
+    data: cur.map((v, d) => [start + d * DAY, v]), endLabel: { show: true, color: c.ink, fontSize: 12, formatter: (p) => num(p.value[1]) } }];
+  if (prev) series.push({ name: prevLabel(state.season), type: "line", showSymbol: false, lineStyle: { width: 2, color: c.deemph }, itemStyle: { color: c.deemph },
+    data: prev.slice(0, 366).map((v, d) => [start + d * DAY, v]) });
+  $("cumSub").textContent = prev ? "All three segments, aligned by day of season" : "All three segments. The previous season isn't held at daily detail, so there's no comparison line.";
+  const opt = baseOption(c);
+  Object.assign(opt, {
+    grid: { ...opt.grid, right: 70 },
+    xAxis: { type: "time", min: start, max: ts(S.end), ...axisStyle(c), splitLine: { show: false },
+             axisLabel: { color: c.muted, hideOverlap: true, formatter: (v) => MONTHS[new Date(v).getUTCMonth()] } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => num(v) } },
+    tooltip: { ...opt.tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: c.axis } }, formatter: (ps) => {
+      const d = Math.round((ps[0].axisValue - start) / DAY);
+      let html = `<div class="tt"><div class="h">Day ${d + 1} of the season (${esc(fmtDay(isoOf(start + d * DAY)))})</div>`;
+      if (cur[d] != null) html += `<div>${key(c.emph)}<b>${esc(ml(cur[d]))}</b> ${esc(state.season)}</div>`;
+      if (prev && prev[d] != null) html += `<div>${key(c.deemph)}<b>${esc(ml(prev[d]))}</b> ${esc(prevLabel(state.season))}</div>`;
+      return html + "</div>"; } },
+    series,
+  });
+  chart.setOption(opt, true);
+  tableBuilders.cumulative = () => {
+    const rows = [];
+    for (let d = 0; d < cur.length; d += 7) rows.push([fmtDay(isoOf(start + d * DAY)), num(cur[d]), prev ? num(prev[d]) : "–"]);
+    return table(["Date", state.season, prev ? prevLabel(state.season) : "Last season"], rows);
+  };
+}
+
+// ---------- monthly table ----------
+function renderMonthly() {
+  const S = season(), P = DATA.seasons[prevLabel(state.season)];
+  const rows = Object.keys(S.monthly).sort().map((m) => {
+    const r = S.monthly[m], prevM = P ? P.monthly[`${Number(m.slice(0, 4)) - 1}${m.slice(4)}`] : null;
+    const tot = SEG.reduce((a, s) => a + ((r[s] && r[s].ml) || 0), 0);
+    const ptot = prevM ? SEG.reduce((a, s) => a + ((prevM[s] && prevM[s].ml) || 0), 0) : null;
+    const cells = [`${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`];
+    for (const s of SEG) { const x = r[s]; cells.push(x ? num(x.ml) : "–", x ? num(x.vwap) : "–", x ? num(x.n) : "–"); }
+    cells.push(num(tot), ptot == null ? "–" : num(ptot), ptot ? signed(pct(tot, ptot)) : "–");
+    return cells;
+  });
+  $("monthly").replaceChildren(table(["Month", "Zone 10 ML", "Zone 10 $/ML", "Trades", "Zone 11 ML", "Zone 11 $/ML", "Trades", "MIL ML", "MIL $/ML", "Days",
+                                      "Total ML", `Total ${prevLabel(state.season)}`, "Change"], rows));
+}
+
+// ---------- register purposes and direction ----------
+function renderPurpose() {
+  const c = colors(), S = season(), chart = mount("purpose");
+  const rows = S.purposes.slice().reverse();
+  const total = S.purposes.reduce((a, p) => a + (p.ml || 0), 0);
+  const counted = (p) => p.purpose === "Standard Commercial" || (p.purpose === "Not recorded" && !S.purpose_recorded);
+  const sold = (S.kpis.Z10.ml || 0) + (S.kpis.Z11.ml || 0);  // commercial, above $0, not supplementary
+  $("purposeSub").textContent = S.purpose_recorded
+    ? `Every allocation assignment touching NSW Murray. Only Standard Commercial trades above $0, excluding supplementary water, count as sales: ${ml(sold)}, ${Math.round(sold / total * 100)}% of the ${ml(total)} registered.`
+    : `The register didn't record trade purpose for this whole season, so every trade above $0 except supplementary water counts as a sale: ${ml(sold)}, ${Math.round(sold / total * 100)}% of the ${ml(total)} registered.`;
+  const opt = baseOption(c);
+  Object.assign(opt, {
+    grid: { left: 176, right: 84, top: 8, bottom: 30 }, legend: { show: false },
+    xAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, hideOverlap: true, formatter: (v) => (v >= 1000 ? `${num(v / 1000)}k` : num(v)) } },
+    yAxis: { type: "category", data: rows.map((p) => p.purpose), ...axisStyle(c), splitLine: { show: false }, axisLabel: { color: c.ink2 } },
+    tooltip: { ...opt.tooltip, trigger: "item", formatter: (p) => { const r = rows[p.dataIndex];
+      return `<div class="tt"><div class="h">${esc(r.purpose)}</div><div><b>${esc(ml(r.ml))}</b> in ${esc(num(r.n))} assignments (${Math.round(r.ml / total * 100)}%)</div>${r.vwap ? `<div>Priced trades averaged <b>${esc(price(r.vwap))}</b></div>` : "<div>No priced trades</div>"}</div>`; } },
+    series: [{ type: "bar", barMaxWidth: 18, data: rows.map((p) => ({ value: p.ml, itemStyle: { color: counted(p) ? c.emph : c.deemph, borderRadius: [0, 4, 4, 0] } })),
+      label: { show: true, position: "right", color: c.ink2, formatter: (p) => num(p.value) } }],
+  });
+  chart.setOption(opt, true);
+  tableBuilders.purpose = () => table(["Trade purpose", "Assignments", "ML", "Share", "Priced VWAP"],
+    S.purposes.map((p) => [p.purpose, num(p.n), num(p.ml), `${Math.round(p.ml / total * 100)}%`, p.vwap ? price(p.vwap) : "–"]));
+}
+
+function renderDirection() {
+  const d = season().direction;
+  $("direction").replaceChildren(table(["", "Within NSW Murray", "Out", "In", "Total"], ["Z10", "Z11"].map((z) => {
+    const r = d[z], t = (r.W || 0) + (r.O || 0) + (r.I || 0);
+    return [z === "Z10" ? "Zone 10 (above the Choke)" : "Zone 11 (below the Choke)", num(r.W), num(r.O), num(r.I), num(t)];
+  })));
+}
+
+// ---------- long run ----------
+function renderLongRun() {
+  const c = colors(), L = DATA.long_run, labels = L.map((r) => r.season + (r.partial ? "*" : ""));
+  const sel = L.findIndex((r) => r.season === state.season);
+  const shade = sel >= 0 ? { silent: true, itemStyle: { color: c.surface2 }, data: [[{ xAxis: labels[sel] }, { xAxis: labels[sel] }]] } : undefined;
+  const tip = (unit) => (ps) => {
+    const r = L[ps[0].dataIndex];
+    let html = `<div class="tt"><div class="h">${esc(r.season)}${r.partial ? " (season to date)" : ""}</div>`;
+    for (const s of SEG) { const x = r[s]; html += `<div>${key(c[s])}<b>${x ? esc(unit === "price" ? price(x.vwap) : ml(x.ml)) : "No data"}</b> ${esc(SEG_LABEL[s])}</div>`; }
+    if (r.register && !r.purpose_recorded) html += `<div style="margin-top:4px">Trade purpose not recorded: all river trades above $0 count.</div>`;
+    return html + "</div>";
+  };
+  const o1 = baseOption(c);
+  Object.assign(o1, { xAxis: { type: "category", data: labels, ...axisStyle(c), splitLine: { show: false }, axisLabel: { color: c.muted, hideOverlap: true } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => `$${num(v)}` } },
+    tooltip: { ...o1.tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: c.axis } }, formatter: tip("price") },
+    series: SEG.map((s, i) => ({ name: SEG_LABEL[s], type: "line", connectNulls: false, symbolSize: 8, showSymbol: true,
+      lineStyle: { width: 2, color: c[s] }, itemStyle: { color: c[s], borderColor: c.surface, borderWidth: 2 },
+      data: L.map((r) => (r[s] && r[s].vwap != null ? r[s].vwap : null)), markArea: i === 0 ? shade : undefined })) });
+  mount("lrprice").setOption(o1, true);
+  const o2 = baseOption(c);
+  Object.assign(o2, { legend: { ...o2.legend, icon: "rect" },
+    xAxis: { type: "category", data: labels, ...axisStyle(c), splitLine: { show: false }, axisLabel: { color: c.muted, hideOverlap: true } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => num(v) } },
+    tooltip: { ...o2.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: "rgba(127,127,127,0.08)" } }, formatter: tip("volume") },
+    series: SEG.map((s, i) => ({ name: SEG_LABEL[s], type: "bar", stack: "v", barMaxWidth: 24,
+      itemStyle: { color: c[s], borderColor: c.surface, borderWidth: 1 }, data: L.map((r) => (r[s] ? r[s].ml : 0)), markArea: i === 0 ? shade : undefined })) });
+  mount("lrvolume").setOption(o2, true);
+  const pTip = (unit) => (ps) => {
+    const r = L[ps[0].dataIndex];
+    let html = `<div class="tt"><div class="h">${esc(r.season)}${r.partial ? " (season to date)" : ""}</div>`;
+    for (const cat of PERM) { const x = r[cat]; html += `<div>${key(c[cat])}<b>${x ? esc(unit === "price" ? perUnit(x.vwap) : units(x.units)) : "No sales"}</b> ${esc(DATA.perm_categories[cat])}${x && unit !== "price" ? esc(` (${num(x.n)} sales)`) : ""}</div>`; }
+    return html + "</div>";
+  };
+  const o3 = baseOption(c);
+  Object.assign(o3, { xAxis: { type: "category", data: labels, ...axisStyle(c), splitLine: { show: false }, axisLabel: { color: c.muted, hideOverlap: true } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => `$${num(v)}` } },
+    tooltip: { ...o3.tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: c.axis } }, formatter: pTip("price") },
+    series: PERM.map((cat, i) => ({ name: DATA.perm_categories[cat], type: "line", connectNulls: false, symbolSize: 8, showSymbol: true,
+      lineStyle: { width: 2, color: c[cat] }, itemStyle: { color: c[cat], borderColor: c.surface, borderWidth: 2 },
+      data: L.map((r) => (r[cat] && r[cat].vwap != null ? r[cat].vwap : null)), markArea: i === 0 ? shade : undefined })) });
+  mount("lrpermprice").setOption(o3, true);
+  const o4 = baseOption(c);
+  Object.assign(o4, { legend: { ...o4.legend, icon: "rect" },
+    xAxis: { type: "category", data: labels, ...axisStyle(c), splitLine: { show: false }, axisLabel: { color: c.muted, hideOverlap: true } },
+    yAxis: { type: "value", ...axisStyle(c), axisLabel: { color: c.muted, formatter: (v) => num(v) } },
+    tooltip: { ...o4.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: "rgba(127,127,127,0.08)" } }, formatter: pTip("units") },
+    series: PERM.map((cat, i) => ({ name: DATA.perm_categories[cat], type: "bar", stack: "u", barMaxWidth: 24,
+      itemStyle: { color: c[cat], borderColor: c.surface, borderWidth: 1 }, data: L.map((r) => (r[cat] ? r[cat].units : 0)), markArea: i === 0 ? shade : undefined })) });
+  mount("lrpermvol").setOption(o4, true);
+  tableBuilders.lrpermprice = () => table(["Season", "General Security $/unit", "High Security $/unit"],
+    L.map((r) => [r.season + (r.partial ? "*" : ""), ...PERM.map((cat) => (r[cat] && r[cat].vwap != null ? num(r[cat].vwap) : "–"))]));
+  tableBuilders.lrpermvol = () => table(["Season", "General Security units", "Sales", "High Security units", "Sales"],
+    L.map((r) => [r.season + (r.partial ? "*" : ""), ...PERM.flatMap((cat) => (r[cat] ? [num(r[cat].units), num(r[cat].n)] : ["–", "–"]))]));
+  tableBuilders.lrprice = () => table(["Season", "Zone 10 $/ML", "Zone 11 $/ML", "MIL $/ML", "Purpose recorded"],
+    L.map((r) => [r.season + (r.partial ? "*" : ""), ...SEG.map((s) => (r[s] && r[s].vwap != null ? num(r[s].vwap, 2) : "–")), r.register ? (r.purpose_recorded ? "Yes" : "No") : "–"]));
+  tableBuilders.lrvolume = () => table(["Season", "Zone 10 ML", "Zone 11 ML", "MIL ML", "Total ML"],
+    L.map((r) => [r.season + (r.partial ? "*" : ""), ...SEG.map((s) => (r[s] ? num(r[s].ml) : "–")), num(SEG.reduce((a, s) => a + ((r[s] && r[s].ml) || 0), 0))]));
+}
+
+// ---------- wiring ----------
+function buildTable(id) { const box = $(`table-${id}`); if (box && tableBuilders[id]) box.replaceChildren(tableBuilders[id]()); }
+function renderSeason() {
+  renderKpis(); renderRecent(); renderPrice(); renderSpread(); renderWeekly(); renderCumulative(); renderMonthly(); renderPurpose(); renderDirection();
+  renderPerm(); renderLongRun();
+  for (const card of document.querySelectorAll(".card.show-table")) buildTable(card.id.replace("card-", ""));
+}
+function applyTheme(mode) {  // the theme observer in init() redraws the charts
+  if (mode === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = mode;
+  try { localStorage.setItem("mwd-theme", mode); } catch (e) { /* storage unavailable */ }
+}
+function init() {
+  const fallback = $("static-summary");  // only for viewers that block scripts
+  if (fallback) fallback.remove();
+  for (const note of document.querySelectorAll(".snapshot-note")) note.remove();
+  const sel = $("season");
+  sel.replaceChildren();
+  for (const label of DATA.season_order) sel.append(el("option", { value: label, text: label === DATA.current_season ? `${label} (current)` : label }));
+  sel.value = state.season;
+  sel.addEventListener("change", () => { state.season = sel.value; renderSeason(); });
+  $("outliers").addEventListener("change", (e) => { state.outliers = e.target.checked; renderPrice(); renderPerm(); });
+  if ($("waterfind")) $("waterfind").addEventListener("change", (e) => { state.waterfind = e.target.checked; renderPrice(); });
+  for (const e of document.querySelectorAll(".asof")) e.textContent = fmtDate(DATA.as_of);
+  for (const b of document.querySelectorAll("button.toggle")) b.addEventListener("click", () => {
+    const id = b.dataset.card, card = $(`card-${id}`), on = card.classList.toggle("show-table");
+    b.textContent = on ? "Chart" : "Table";
+    if (on) buildTable(id); else if (charts[id]) charts[id].resize();
+  });
+  const themeSelect = $("theme");  // absent on the web version, whose host supplies the theme
+  if (themeSelect) {
+    let saved = "auto";
+    try { saved = localStorage.getItem("mwd-theme") || "auto"; } catch (e) { /* storage unavailable */ }
+    themeSelect.value = saved;
+    if (saved !== "auto") document.documentElement.dataset.theme = saved;
+    themeSelect.addEventListener("change", (e) => applyTheme(e.target.value));
+  }
+  // Redraw the charts whenever the theme changes: this page's selector, the page host's toggle, or the OS
+  new MutationObserver(() => renderSeason()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!document.documentElement.dataset.theme) renderSeason(); });
+  const resizeAll = () => Object.values(charts).forEach((ch) => ch.resize());
+  window.addEventListener("resize", resizeAll);
+  window.addEventListener("beforeprint", resizeAll);  // paper layout differs from the screen's
+  window.addEventListener("afterprint", resizeAll);
+  matchMedia("print").addEventListener("change", resizeAll);
+  for (const e of document.querySelectorAll(".permLow")) e.textContent = DATA.rules.outlier_low;
+  for (const e of document.querySelectorAll(".permHigh")) e.textContent = DATA.rules.outlier_high;
+  for (const e of document.querySelectorAll(".permMin")) e.textContent = DATA.rules.perm_min_trades;
+  renderStatus(); renderMarketNow(); renderLatestPerm(); renderSeason();
+}
+init();
+</script>
+</body>
+</html>
