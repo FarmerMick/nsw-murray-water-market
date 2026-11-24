@@ -1,0 +1,13 @@
+name: probe sources
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reach register and MIL
+        run: |
+          UA="MurrayWaterDashboard/1.0 (public dashboard; github.com/FarmerMick/nsw-murray-water-market)"
+          curl -sS -o /dev/null -w "register %{http_code} %{size_download}\n" -A "$UA" -X POST https://waterregister.waternsw.com.au/AllocationResult -d "pageCommand=search&resultType=modern&startDate=01-Nov-2026&endDate=24-Nov-2026&src=11904&cat="
+          sleep 2
+          curl -sS -o /dev/null -w "share %{http_code} %{size_download}\n" -A "$UA" -X POST https://waterregister.waternsw.com.au/WaterShareIntraWSResult --data-urlencode "pageCommand=search" --data-urlencode "resultType=modern" --data-urlencode "src=11904" --data-urlencode "period=01-Jul-2026 to 30-Jun-2027"
+          curl -sS -o /dev/null -w "mil %{http_code} %{size_download}\n" -A "$UA" https://api01.murrayirrigation.com.au/v1.0/market/summary
